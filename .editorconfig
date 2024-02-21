@@ -1,0 +1,25 @@
+# EditorConfig is awesome: https://EditorConfig.org
+
+# Top-most EditorConfig file
+root = true
+
+# Unix-style newlines
+[*]
+end_of_line = LF
+
+# 4 spaces for indentation
+[*.py]
+indent_style = space
+indent_size = 4
+
+# UTF-8 encoding
+[*.py]
+charset = utf-8
+
+# Trim trailing whitespace
+[*]
+trim_trailing_whitespace = true
+
+# Ensure a newline at the end of the file
+[*]
+insert_final_newline = true

@@ -1,6 +1,6 @@
 from flask import Flask
 from app.config import load_configurations, configure_logging
-from views import webhook_blueprint
+from .views import webhook_blueprint
 
 
 def create_app():
