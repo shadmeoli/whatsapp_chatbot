@@ -1,125 +1,139 @@
-from openai import OpenAI
-import shelve
+import json
 from dotenv import load_dotenv
 import os
-import time
+import requests
+import aiohttp
+import asyncio
+
+# --------------------------------------------------------------
+# Load environment variables
+# --------------------------------------------------------------
 
 load_dotenv()
-OPEN_AI_API_KEY = os.getenv("OPEN_AI_API_KEY")
-client = OpenAI(api_key=OPEN_AI_API_KEY)
+ACCESS_TOKEN = os.getenv("ACCESS_TOKEN")
+RECIPIENT_WAID = os.getenv("RECIPIENT_WAID")
+PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID")
+VERSION = os.getenv("VERSION")
 
-
-# --------------------------------------------------------------
-# Upload file
-# --------------------------------------------------------------
-def upload_file(path):
-    # Upload a file with an "assistants" purpose
-    file = client.files.create(file=open(path, "rb"), purpose="assistants")
-    return file
-
-
-file = upload_file("../data/airbnb-faq.pdf")
-
+APP_ID = os.getenv("APP_ID")
+APP_SECRET = os.getenv("APP_SECRET")
 
 # --------------------------------------------------------------
-# Create assistant
+# Send a template WhatsApp message
 # --------------------------------------------------------------
-def create_assistant(file):
-    """
-    You currently cannot set the temperature for Assistant via the API.
-    """
-    assistant = client.beta.assistants.create(
-        name="WhatsApp AirBnb Assistant",
-        instructions="You're a helpful WhatsApp assistant that can assist guests that are staying in our Nairobi AirBnb. Use your knowledge base to best respond to customer queries. If you don't know the answer, say simply that you cannot help with question and advice to contact the host directly. Be friendly and funny.",
-        tools=[{"type": "retrieval"}],
-        model="gpt-4-1106-preview",
-        file_ids=[file.id],
+
+
+def send_whatsapp_message():
+    url = f"https://graph.facebook.com/{VERSION}/{PHONE_NUMBER_ID}/messages"
+    headers = {
+        "Authorization": "Bearer " + ACCESS_TOKEN,
+        "Content-Type": "application/json",
+    }
+    data = {
+        "messaging_product": "whatsapp",
+        "to": RECIPIENT_WAID,
+        "type": "template",
+        "template": {"name": "hello_world", "language": {"code": "en_US"}},
+    }
+    response = requests.post(url, headers=headers, json=data)
+    return response
+
+
+# Call the function
+response = send_whatsapp_message()
+print(response.status_code)
+print(response.json())
+
+# --------------------------------------------------------------
+# Send a custom text WhatsApp message
+# --------------------------------------------------------------
+
+# NOTE: First reply to the message from the user in WhatsApp!
+
+
+def get_text_message_input(recipient, text):
+    return json.dumps(
+        {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": recipient,
+            "type": "text",
+            "text": {"preview_url": False, "body": text},
+        }
     )
-    return assistant
 
 
-assistant = create_assistant(file)
+def send_message(data):
+    headers = {
+        "Content-type": "application/json",
+        "Authorization": f"Bearer {ACCESS_TOKEN}",
+    }
 
+    url = f"https://graph.facebook.com/{VERSION}/{PHONE_NUMBER_ID}/messages"
 
-# --------------------------------------------------------------
-# Thread management
-# --------------------------------------------------------------
-def check_if_thread_exists(wa_id):
-    with shelve.open("threads_db") as threads_shelf:
-        return threads_shelf.get(wa_id, None)
-
-
-def store_thread(wa_id, thread_id):
-    with shelve.open("threads_db", writeback=True) as threads_shelf:
-        threads_shelf[wa_id] = thread_id
-
-
-# --------------------------------------------------------------
-# Generate response
-# --------------------------------------------------------------
-def generate_response(message_body, wa_id, name):
-    # Check if there is already a thread_id for the wa_id
-    thread_id = check_if_thread_exists(wa_id)
-
-    # If a thread doesn't exist, create one and store it
-    if thread_id is None:
-        print(f"Creating new thread for {name} with wa_id {wa_id}")
-        thread = client.beta.threads.create()
-        store_thread(wa_id, thread.id)
-        thread_id = thread.id
-
-    # Otherwise, retrieve the existing thread
+    response = requests.post(url, data=data, headers=headers)
+    if response.status_code == 200:
+        print("Status:", response.status_code)
+        print("Content-type:", response.headers["content-type"])
+        print("Body:", response.text)
+        return response
     else:
-        print(f"Retrieving existing thread for {name} with wa_id {wa_id}")
-        thread = client.beta.threads.retrieve(thread_id)
+        print(response.status_code)
+        print(response.text)
+        return response
 
-    # Add message to thread
-    message = client.beta.threads.messages.create(
-        thread_id=thread_id,
-        role="user",
-        content=message_body,
+
+data = get_text_message_input(
+    recipient=RECIPIENT_WAID, text="Hello, this is a test message."
+)
+
+response = send_message(data)
+
+# --------------------------------------------------------------
+# Send a custom text WhatsApp message asynchronously
+# --------------------------------------------------------------
+
+
+# Does not work with Jupyter!
+async def send_message(data):
+    headers = {
+        "Content-type": "application/json",
+        "Authorization": f"Bearer {ACCESS_TOKEN}",
+    }
+
+    async with aiohttp.ClientSession() as session:
+        url = "https://graph.facebook.com" + f"/{VERSION}/{PHONE_NUMBER_ID}/messages"
+        try:
+            async with session.post(url, data=data, headers=headers) as response:
+                if response.status == 200:
+                    print("Status:", response.status)
+                    print("Content-type:", response.headers["content-type"])
+
+                    html = await response.text()
+                    print("Body:", html)
+                else:
+                    print(response.status)
+                    print(response)
+        except aiohttp.ClientConnectorError as e:
+            print("Connection Error", str(e))
+
+
+def get_text_message_input(recipient, text):
+    return json.dumps(
+        {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": recipient,
+            "type": "text",
+            "text": {"preview_url": False, "body": text},
+        }
     )
 
-    # Run the assistant and get the new message
-    new_message = run_assistant(thread)
-    print(f"To {name}:", new_message)
-    return new_message
 
+data = get_text_message_input(
+    recipient=RECIPIENT_WAID, text="Hello, this is a test message."
+)
 
-# --------------------------------------------------------------
-# Run assistant
-# --------------------------------------------------------------
-def run_assistant(thread):
-    # Retrieve the Assistant
-    assistant = client.beta.assistants.retrieve("asst_7Wx2nQwoPWSf710jrdWTDlfE")
-
-    # Run the assistant
-    run = client.beta.threads.runs.create(
-        thread_id=thread.id,
-        assistant_id=assistant.id,
-    )
-
-    # Wait for completion
-    while run.status != "completed":
-        # Be nice to the API
-        time.sleep(0.5)
-        run = client.beta.threads.runs.retrieve(thread_id=thread.id, run_id=run.id)
-
-    # Retrieve the Messages
-    messages = client.beta.threads.messages.list(thread_id=thread.id)
-    new_message = messages.data[0].content[0].text.value
-    print(f"Generated message: {new_message}")
-    return new_message
-
-
-# --------------------------------------------------------------
-# Test assistant
-# --------------------------------------------------------------
-
-new_message = generate_response("What's the check in time?", "123", "John")
-
-new_message = generate_response("What's the pin for the lockbox?", "456", "Sarah")
-
-new_message = generate_response("What was my previous question?", "123", "John")
-
-new_message = generate_response("What was my previous question?", "456", "Sarah")
+loop = asyncio.get_event_loop()
+loop.run_until_complete(send_message(data))
+loop.close()

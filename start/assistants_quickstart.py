@@ -30,7 +30,7 @@ def create_assistant(file):
     """
     assistant = client.beta.assistants.create(
         name="WhatsApp AirBnb Assistant",
-        instructions="You're a helpful WhatsApp assistant that can assist guests that are staying in our Nairobi AirBnb. Use your knowledge base to best respond to customer queries. If you don't know the answer, say simply that you cannot help with question and advice to contact the host directly. Be friendly and funny.",
+        instructions="You're a helpful WhatsApp assistant that can assist guests that are staying in our Paris AirBnb. Use your knowledge base to best respond to customer queries. If you don't know the answer, say simply that you cannot help with question and advice to contact the host directly. Be friendly and funny.",
         tools=[{"type": "retrieval"}],
         model="gpt-4-1106-preview",
         file_ids=[file.id],

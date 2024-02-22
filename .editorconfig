@@ -22,4 +22,4 @@ trim_trailing_whitespace = true
 
 # Ensure a newline at the end of the file
 [*]
-insert_final_newline = true
+insert_final_newline = false

@@ -1,0 +1,20 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "internalConsole",
+            "args": [
+                "--no-debugger",
+                "--no-reload"
+            ],
+            "autoReload": {
+                "enable": true,
+                "path": "**/*.py"
+            }
+        }
+    ]
+}
